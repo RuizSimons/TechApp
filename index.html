@@ -136,7 +136,7 @@
 
             // --- Send Data to FastAPI Backend ---
             try {
-                const response = await fetch('http://127.0.0.1:8000/submit-work-order/', {
+                const response = await fetch('https://field-tech-backend.onrender.com/submit-work-order/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
