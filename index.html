@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Service Work Order</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Signature Pad library for drawing -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <style>
+        /* A simple style to make the canvas look like a signature area */
+        .signature-pad-container {
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6 md:p-8">
+        
+        <header class="mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-800">Work Order Sign-off</h1>
+            <p class="text-slate-500 mt-1">Please fill out the details and capture the customer's signature.</p>
+        </header>
+
+        <!-- Form for Job Details -->
+        <form id="work-order-form">
+            <div class="space-y-4">
+                <!-- Customer Name -->
+                <div>
+                    <label for="customerName" class="block text-sm font-medium text-slate-700">Customer Name</label>
+                    <input type="text" id="customerName" name="customerName" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+
+                <!-- Customer Email -->
+                <div>
+                    <label for="customerEmail" class="block text-sm font-medium text-slate-700">Customer Email</label>
+                    <input type="email" id="customerEmail" name="customerEmail" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required>
+                </div>
+
+                <!-- Work Performed -->
+                <div>
+                    <label for="workPerformed" class="block text-sm font-medium text-slate-700">Work Performed</label>
+                    <textarea id="workPerformed" name="workPerformed" rows="4" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" required></textarea>
+                </div>
+
+                <!-- Signature Pad Section -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Customer Signature</label>
+                    <div class="mt-1 signature-pad-container">
+                        <canvas id="signature-pad" class="w-full h-48"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between mt-6">
+                <button type="button" id="clear-button" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                    Clear Signature
+                </button>
+                <button type="submit" id="save-button" class="inline-flex justify-center px-6 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Save and Submit
+                </button>
+            </div>
+        </form>
+
+        <!-- Message Area -->
+        <div id="message-area" class="mt-4 text-center text-sm font-medium"></div>
+
+    </div>
+
+    <script>
+        // --- DOM Element Selection ---
+        const canvas = document.getElementById('signature-pad');
+        const clearButton = document.getElementById('clear-button');
+        const saveButton = document.getElementById('save-button');
+        const workOrderForm = document.getElementById('work-order-form');
+        const messageArea = document.getElementById('message-area');
+
+        // --- Initialize Signature Pad ---
+        const signaturePad = new SignaturePad(canvas, {
+            backgroundColor: 'rgb(255, 255, 255)'
+        });
+
+        // --- Responsive Canvas Resizing ---
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            signaturePad.clear(); 
+        }
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        // --- Button Event Handlers ---
+        clearButton.addEventListener('click', () => {
+            signaturePad.clear();
+            messageArea.textContent = '';
+        });
+
+        // --- Form Submission Handler ---
+        workOrderForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default page reload
+
+            // --- Validate Signature ---
+            if (signaturePad.isEmpty()) {
+                messageArea.textContent = 'Please provide a signature.';
+                messageArea.className = 'mt-4 text-center text-sm font-medium text-red-600';
+                return;
+            }
+
+            // --- Get Form Data ---
+            const signatureDataURL = signaturePad.toDataURL("image/png");
+            const formData = {
+                customerName: document.getElementById('customerName').value,
+                customerEmail: document.getElementById('customerEmail').value,
+                workPerformed: document.getElementById('workPerformed').value,
+                signatureImage: signatureDataURL
+            };
+
+            // --- UI Feedback: Loading State ---
+            saveButton.disabled = true;
+            saveButton.textContent = 'Submitting...';
+            messageArea.textContent = 'Sending data to server...';
+            messageArea.className = 'mt-4 text-center text-sm font-medium text-blue-600';
+
+            // --- Send Data to FastAPI Backend ---
+            try {
+                const response = await fetch('http://127.0.0.1:8000/submit-work-order/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                // Check if the request was successful
+                if (!response.ok) {
+                    // If not OK, throw an error to be caught by the catch block
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Success:', result);
+
+                // --- UI Feedback: Success State ---
+                messageArea.textContent = `Success! ${result.message} File saved as ${result.filename}.`;
+                messageArea.className = 'mt-4 text-center text-sm font-medium text-green-600';
+                saveButton.textContent = 'Submitted';
+                // Keep button disabled to prevent re-submission
+                saveButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                saveButton.classList.add('bg-gray-400');
+
+            } catch (error) {
+                console.error('Error:', error);
+
+                // --- UI Feedback: Error State ---
+                messageArea.textContent = `Error submitting form: ${error.message}`;
+                messageArea.className = 'mt-4 text-center text-sm font-medium text-red-600';
+                
+                // Re-enable the button so the user can try again
+                saveButton.disabled = false;
+                saveButton.textContent = 'Save and Submit';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+supabase
+weasyprint
+sendgrid
+python-multipart
